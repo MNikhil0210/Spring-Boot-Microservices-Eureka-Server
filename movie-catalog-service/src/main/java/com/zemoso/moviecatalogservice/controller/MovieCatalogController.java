@@ -3,6 +3,8 @@ package com.zemoso.moviecatalogservice.controller;
 import com.zemoso.moviecatalogservice.entity.CatalogItem;
 import com.zemoso.moviecatalogservice.entity.Movie;
 import com.zemoso.moviecatalogservice.entity.UserRating;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,11 +18,13 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/catalog")
 public class MovieCatalogController {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MovieCatalogController.class);
 
     @Autowired
     private WebClient.Builder webClientBuilder;
     @GetMapping("/{userId}")
     public List<CatalogItem> getCatalog(@PathVariable("userId") String userId) {
+        List<CatalogItem> catalogItems;
         UserRating ratings = webClientBuilder.build()
                 .get()
                 .uri("http://ratings-data-service/api/rating/users/" + userId)
@@ -28,7 +32,7 @@ public class MovieCatalogController {
                 .bodyToMono(UserRating.class)
                 .block();
 
-        return ratings.getUserRatings().stream().map(rating -> {
+        catalogItems = ratings.getUserRatings().stream().map(rating -> {
             Movie movie = webClientBuilder.build()
                     .get()
                     .uri("http://movie-info-service/api/movie/" + rating.getMovieId())
@@ -38,5 +42,11 @@ public class MovieCatalogController {
 
             return new CatalogItem(movie.getName(), "South Indian Movie", rating.getRating());
         }).collect(Collectors.toList());
+        catalogItems.forEach(catalogItem -> {
+            LOGGER.info(catalogItem.getName());
+            LOGGER.info(catalogItem.getDescription());
+            LOGGER.info(String.valueOf(catalogItem.getRating()));
+        });
+        return catalogItems;
     }
 }
